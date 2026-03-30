@@ -101,7 +101,7 @@ $uri = "https://graph.microsoft.com/v1.0/devices?`$filter=$deviceFilter&`$select
 do {
     $response = Invoke-MgGraphRequest -Method GET -Uri $uri
     foreach ($d in $response.value) { $allDevices.Add($d) }
-    $uri = $response.'@odata.nextLink'
+    $uri = if ($response.ContainsKey('@odata.nextLink')) { $response.'@odata.nextLink' } else { $null }
 } while ($uri)
 
 Write-Log "  Found $($allDevices.Count) Windows device(s) total." -Color Green
@@ -148,7 +148,7 @@ do {
             }
         }
     }
-    $uri = $response.'@odata.nextLink'
+    $uri = if ($response.ContainsKey('@odata.nextLink')) { $response.'@odata.nextLink' } else { $null }
 } while ($uri)
 
 Write-Log "  Found BitLocker keys for $($keyCountByDevice.Count) unique device(s)." -Color Green
