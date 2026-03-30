@@ -10,6 +10,34 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
+# Ensure Install-PSResource is available. PSResourceGet itself has no sub-dependencies
+# so Install-Module won't hit the "Dependencies\Desktop" temp-path access-denied bug.
+if (-not (Get-Command Install-PSResource -ErrorAction SilentlyContinue)) {
+    Write-Host "Bootstrapping Microsoft.PowerShell.PSResourceGet..." -ForegroundColor Cyan
+    Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -Force -AllowClobber
+    Import-Module Microsoft.PowerShell.PSResourceGet
+    Write-Host "PSResourceGet ready." -ForegroundColor Green
+}
+
+# Redirect TEMP to a plain directory. The Graph .nupkg contains a Dependencies\Desktop
+# subfolder; Windows treats 'Desktop' as a shell namespace under %TEMP%, causing access
+# denied during extraction. A non-special path avoids this entirely.
+$customTemp = 'C:\GI\Temp'
+if (-not (Test-Path $customTemp)) {
+    New-Item -Path $customTemp -ItemType Directory -Force | Out-Null
+}
+$originalTemp = $env:TEMP
+$originalTmp  = $env:TMP
+$env:TEMP = $customTemp
+$env:TMP  = $customTemp
+
+function Install-OrUpdateModule {
+    param([string]$Name, [switch]$Reinstall)
+    $params = @{ Name = $Name; Scope = 'CurrentUser'; TrustRepository = $true }
+    if ($Reinstall) { $params['Reinstall'] = $true }
+    Install-PSResource @params
+}
+
 $requiredModules = @(
     'Microsoft.Graph.Authentication',
     'Microsoft.Graph.Identity.DirectoryManagement',
@@ -32,31 +60,38 @@ foreach ($mod in $requiredModules) {
     if ($installed) {
         Write-Host "[OK]      $mod v$($installed.Version)" -ForegroundColor Green
 
-        $online = Find-Module -Name $mod -ErrorAction SilentlyContinue
+        $online = Find-PSResource -Name $mod -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($online -and $online.Version -gt $installed.Version) {
             Write-Host "          Updating $mod $($installed.Version) -> $($online.Version)..." -ForegroundColor Yellow
-            Update-Module -Name $mod -Scope CurrentUser -Force
+            Install-OrUpdateModule -Name $mod -Reinstall
             Write-Host "          Updated." -ForegroundColor Green
         }
     }
     else {
         Write-Host "[MISSING] $mod - installing..." -ForegroundColor Yellow
-        Install-Module -Name $mod -Scope CurrentUser -Force -AllowClobber
+        Install-OrUpdateModule -Name $mod
         $ver = (Get-Module -ListAvailable -Name $mod | Sort-Object Version -Descending | Select-Object -First 1).Version
         Write-Host "          Installed $mod v$ver" -ForegroundColor Green
     }
 }
 
-# Verify all modules can be imported
+$env:TEMP = $originalTemp
+$env:TMP  = $originalTmp
+
+# Verify all modules can be imported in a fresh subprocess to avoid
+# "assembly already loaded" errors from a prior version in this session.
 Write-Host "`nVerifying module imports..." -ForegroundColor Cyan
 $allGood = $true
 foreach ($mod in $requiredModules) {
-    try {
-        Import-Module $mod -ErrorAction Stop
+    $result = pwsh -NoProfile -NonInteractive -Command "
+        try { Import-Module '$mod' -ErrorAction Stop; 'OK' }
+        catch { 'FAIL: ' + `$_.Exception.Message }
+    "
+    if ($result -eq 'OK') {
         Write-Host "[OK]      $mod imported successfully." -ForegroundColor Green
     }
-    catch {
-        Write-Host "[FAIL]    $mod failed to import: $_" -ForegroundColor Red
+    else {
+        Write-Host "[FAIL]    $mod failed to import: $result" -ForegroundColor Red
         $allGood = $false
     }
 }
