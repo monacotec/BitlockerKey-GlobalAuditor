@@ -32,10 +32,13 @@ $env:TEMP = $customTemp
 $env:TMP  = $customTemp
 
 function Install-OrUpdateModule {
-    param([string]$Name, [switch]$Reinstall)
-    $params = @{ Name = $Name; Scope = 'CurrentUser'; TrustRepository = $true }
-    if ($Reinstall) { $params['Reinstall'] = $true }
-    Install-PSResource @params
+    param([string]$Name)
+    # No -Reinstall: PSResourceGet installs versions side-by-side in versioned
+    # folders, so grabbing the latest never deletes the currently-loaded copy.
+    # -Reinstall forces a delete+re-extract of the package AND its dependencies
+    # (e.g. Microsoft.Graph.Authentication), which fails when that DLL is locked
+    # by a running session ("Cannot remove package path ...").
+    Install-PSResource -Name $Name -Scope CurrentUser -TrustRepository:$true
 }
 
 $requiredModules = @(
@@ -63,8 +66,8 @@ foreach ($mod in $requiredModules) {
         $online = Find-PSResource -Name $mod -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($online -and $online.Version -gt $installed.Version) {
             Write-Host "          Updating $mod $($installed.Version) -> $($online.Version)..." -ForegroundColor Yellow
-            Install-OrUpdateModule -Name $mod -Reinstall
-            Write-Host "          Updated." -ForegroundColor Green
+            Install-OrUpdateModule -Name $mod
+            Write-Host "          Updated (v$($online.Version) installed side-by-side; used on next session)." -ForegroundColor Green
         }
     }
     else {
