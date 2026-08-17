@@ -92,7 +92,14 @@ Endpoint security → Disk encryption → BitLocker policy → OS drive:
 
 Policy only helps devices going forward. Already-encrypted devices need the active
 remediation above, ideally delivered fleet-wide via **Intune → Devices →
-Remediations** (a detection script flagging "no `RecoveryPassword` protector on C:"
-plus `Backup-BitLockerToEntra.ps1` as the remediation). Note that Intune remediation
-scripts run as **SYSTEM under Windows PowerShell 5.1**, not PowerShell 7 — the
-BitLocker cmdlets are available there, but don't rely on PS7-only syntax.
+Remediations** using the detection/remediation pair:
+
+- `Detect-BitLockerEntraEscrow.ps1` — detection (read-only; flags devices missing a
+  `RecoveryPassword` protector or with no recorded Entra escrow)
+- `Backup-BitLockerToEntra.ps1` — remediation (escrows the key, writes a success
+  stamp so the pair converges)
+
+See **[intune-remediation-runbook.md](intune-remediation-runbook.md)** for the full
+step-by-step deployment runbook. Note that Intune remediation scripts run as
+**SYSTEM under Windows PowerShell 5.1**, not PowerShell 7 — the BitLocker cmdlets
+are available there, but don't rely on PS7-only syntax.

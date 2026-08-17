@@ -130,5 +130,18 @@ if ($failCount -gt 0) {
     exit 1
 }
 
+# Record success so the Intune detection script (Detect-BitLockerEntraEscrow.ps1)
+# marks this device compliant and stops re-triggering remediation. Written to the
+# 64-bit HKLM view; detection must also run in 64-bit PowerShell to read it back.
+try {
+    $stampKey = 'HKLM:\SOFTWARE\GI\BitLockerEscrow'
+    if (-not (Test-Path $stampKey)) { New-Item -Path $stampKey -Force | Out-Null }
+    Set-ItemProperty -Path $stampKey -Name 'LastBackupUtc' -Value ((Get-Date).ToUniversalTime().ToString('o'))
+    Set-ItemProperty -Path $stampKey -Name 'ProtectorsBackedUp' -Value $successCount -Type DWord
+}
+catch {
+    Write-Warning "Escrow succeeded but failed to write escrow stamp: $_"
+}
+
 Write-Output "`n[OK] All recovery keys backed up to Entra ID."
 exit 0
