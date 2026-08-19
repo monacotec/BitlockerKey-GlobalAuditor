@@ -231,18 +231,34 @@ or redirect the default container with `redircmp`.
    rebuild, and stage to a second USB. You end up with two USBs — GI Partners and GI
    Property Management — identical except for AccountOU.
 
-## Step 4 — Apply during OOBE
+## Step 4 — Apply the package
+
+Use the correct USB for the device's business unit (GI Partners vs GI Property
+Management — they differ only by AccountOU).
+
+### Method A — Existing Windows install (primary)
+
+For machines already running Windows (workgroup, Entra-joined, or otherwise not yet
+on `pe.gipartners.com`):
+
+1. Sign in to the device as a local administrator.
+2. **Insert the USB.**
+3. **Settings → Accounts → Access work or school → Add or remove a provisioning
+   package → Add a package** → select the **`.ppkg`** from the USB → enter the
+   package password if set → confirm.
+4. **Reboot** when prompted to complete the domain join.
+
+> **Precondition:** the device must **not already be domain-joined** to
+> `pe.gipartners.com`. Applying the package to an already-joined machine will error.
+
+### Method B — During OOBE (new / freshly reset device)
 
 1. Boot the target device to the **first OOBE screen** (region/"Is this the right
    country or region?").
 2. **Insert the USB.** Provisioning usually auto-launches. If it doesn't, **press the
    Windows key five times** on that screen to open the "Provision this device" flow.
 3. Select the **`.ppkg`**, enter the package password if set, and confirm. The device
-   applies the package, joins the directory, and begins Intune enrollment.
-
-> **Post-OOBE alternative** (device already past OOBE): Settings → Accounts →
-> **Access work or school** → **Add or remove a provisioning package** → **Add a
-> package** → select the `.ppkg`.
+   applies the package, joins the domain, and begins Intune enrollment.
 
 ## Step 5 — Verify the device
 
@@ -258,15 +274,16 @@ or redirect the default container with `redircmp`.
 
 ## Security — handle the USB as sensitive
 
-The bulk enrollment token embedded in the `.ppkg` can join devices to your tenant as
-the token account for the life of the token (up to 180 days). Therefore:
+The **domain-join credentials** for `hybridjoin@gipartners.com` are embedded in the
+`.ppkg` (see [Join account](#join-account--hybridjoingipartnerscom)). Anyone with the
+package can create computer objects in the two delegated OUs. Therefore:
 
 - **Password-protect** (and sign, if possible) the package in WCD.
-- **Store the USB securely**; don't leave it in provisioning areas unattended.
-- **Use the shortest token expiry** you can operate with, and **rebuild before it
-  expires**. Expiry does not affect already-joined devices.
-- If a USB is lost, **rotate**: disable/rotate the token account's credentials and
-  rebuild the package. Review recently joined devices in Entra.
+- **Store the USBs securely**; don't leave them in provisioning areas unattended.
+- **Least privilege is the containment**: because `hybridjoin` is delegated only on
+  those two OUs (no admin groups), a leaked package can't compromise the domain.
+- If a USB is lost, **rotate**: change the `hybridjoin` password, rebuild both
+  packages, and review recently created computer objects in the two OUs.
 
 ## Troubleshooting
 
@@ -283,8 +300,10 @@ the token account for the life of the token (up to 180 days). Therefore:
 
 - A join-only `.ppkg` **enrolls**; it does not encrypt or escrow. The Intune
   BitLocker policy does that — keep both in place.
-- Bulk tokens expire (≤180 days); this package **must be rebuilt periodically**.
-- FAT32 USB and package-at-root are the reliability keys for OOBE pickup.
+- This (AD domain-join) package has **no bulk token to expire**; rebuild it only when
+  the `hybridjoin` password is rotated or an OU changes. (The bulk-token expiry note
+  applies only to the Entra-join alternative in the decision table.)
+- FAT32 USB and package-at-root are the reliability keys for USB pickup.
 - For fully cloud, zero-touch provisioning at scale, Windows Autopilot is the
   alternative to a USB package — out of scope for this runbook, which covers the
   USB `.ppkg` path.
