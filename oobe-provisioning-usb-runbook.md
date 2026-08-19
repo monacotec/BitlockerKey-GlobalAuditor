@@ -35,6 +35,109 @@ devices must remain on-prem domain-joined, use AD domain join **and** confirm th
 Intune BitLocker policy saves recovery info to Entra (see the escrow policy note
 below), or keys will land only in on-prem AD DS.
 
+> **Chosen path: AD domain join (hybrid).** Devices join on-prem AD using a
+> dedicated join account, `hybridjoin@gipartners.com`, then hybrid-register to Entra
+> via Entra Connect. Because the Intune BitLocker policy is configured to save
+> recovery info to Entra, keys escrow to Entra ID. Set up the join account per the
+> next section **before** building the package.
+
+## Join account — hybridjoin@gipartners.com
+
+This is an **on-prem Active Directory** account whose only job is to create the
+computer object during domain join. Its credentials are **embedded in the .ppkg**,
+so it must be least-privileged and the package treated as a secret.
+
+### Permissions summary
+
+| Scope | Needs | Explicitly does NOT need |
+|---|---|---|
+| **On-prem AD** | Delegated **Create/Delete Computer objects** + specific property writes on **one target OU** | Domain Admin, Account Operators, or any built-in admin group |
+| **Entra ID** | *Nothing* — hybrid registration is done by Entra Connect, not this account | Any Entra role (Global Admin, Cloud Device Admin, Intune Admin) |
+| **Intune** | *Nothing* — auto-enrollment runs in the device/user context after hybrid join | Any Intune role or license |
+
+Least privilege matters here specifically because the password ships inside the
+package. Delegating rights on a single OU means a leaked package can, at worst,
+create/rename computer objects in that one OU — not compromise the domain.
+
+### Step A — Create the account
+
+Run on a machine with the RSAT Active Directory PowerShell module (adjust the OU DN
+to your directory):
+
+```powershell
+New-ADUser -Name 'hybridjoin' -SamAccountName 'hybridjoin' `
+  -UserPrincipalName 'hybridjoin@gipartners.com' `
+  -Path 'OU=Service Accounts,DC=gipartners,DC=com' `
+  -AccountPassword (Read-Host -AsSecureString 'Enter a strong 25+ char password') `
+  -Enabled $true -PasswordNeverExpires $true -CannotChangePassword $true `
+  -Description 'Delegated computer-join account for OOBE provisioning packages'
+```
+
+Keep it a plain **Domain Users** member — the join rights come from OU delegation in
+the next step, not from group membership.
+
+### Step B — Delegate Create/Delete Computer on the target OU (GUI, recommended)
+
+Do this on the OU where provisioned computers should land (e.g.
+`OU=Workstations,DC=gipartners,DC=com`):
+
+1. **Active Directory Users and Computers** → **View → Advanced Features** (on).
+2. Right-click the target OU → **Delegate Control…** → **Next**.
+3. **Add** `hybridjoin` → **Next**.
+4. **Create a custom task to delegate** → **Next**.
+5. **Only the following objects in the folder** → check **Computer objects**, then
+   check both **Create selected objects in this folder** and **Delete selected
+   objects in this folder** → **Next**.
+6. Permissions — check **General** and **Property-specific**, then grant:
+   - Read All Properties / Write All Properties
+   - Read Permissions
+   - Reset Password / Change Password
+   - Read and write Account Restrictions
+   - Validated write to DNS host name
+   - Validated write to service principal name
+7. **Next → Finish**.
+
+### Step B (alt) — dsacls (scripted)
+
+The create/delete grant is simple and robust to script; use the GUI wizard above for
+the property-level bits:
+
+```cmd
+dsacls "OU=Workstations,DC=gipartners,DC=com" /I:T /G "GIPARTNERS\hybridjoin:CCDC;computer"
+```
+
+`CCDC;computer` = create + delete **computer** child objects; `/I:T` applies down the
+subtree (drop to default/`/I:S` if you don't want sub-OUs included).
+
+### Step C — Point the package at the same OU
+
+In WCD, the domain-join **AccountOU must match the delegated OU**. In the *Provision
+desktop devices* wizard's **Join Active Directory** step, or in *Advanced
+provisioning* under **Runtime settings → Accounts → ComputerAccount**, set:
+
+- **Account / UserName**: `GIPARTNERS\hybridjoin` (or `hybridjoin@gipartners.com`)
+- **Password**: the account password
+- **AccountOU**: `OU=Workstations,DC=gipartners,DC=com`
+- **DomainName**: `gipartners.com`
+
+If you don't set AccountOU, computers land in the default **Computers** container —
+where `hybridjoin` has no delegated rights — and the join fails. Either set AccountOU
+or redirect the default container with `redircmp`.
+
+### Step D — Harden the account
+
+- **No admin groups** — verify it's only in Domain Users.
+- **Deny interactive logon**: via GPO grant it *Deny log on locally*, *Deny log on
+  through Remote Desktop Services*, *Deny log on as a batch job/service*. Domain join
+  is a network operation and does not need any of these.
+- **MachineAccountQuota**: OU delegation works regardless of the domain
+  `ms-DS-MachineAccountQuota`. If that quota is still the default 10 for all
+  authenticated users, consider setting it to 0 domain-wide so only delegated
+  accounts can join — tightens the whole domain, not just this account.
+- **Rotate**: change the password after each provisioning campaign (or on any
+  suspected package exposure) and rebuild the package. Always password-protect the
+  .ppkg (Step Finish → *Protect your package*).
+
 ## Prerequisites
 
 - **Windows Configuration Designer (WCD)** — install from the Microsoft Store
@@ -80,8 +183,9 @@ below), or keys will land only in on-prem AD DS.
 - **Entra join path**: select **Enroll in Azure AD** → **Get Bulk Token** → sign in
   with the permitted account → complete auth. A bulk token (valid up to **180 days**)
   is embedded in the package. **Set the shortest practical expiry.**
-- **AD domain join path**: select **Join Active Directory**, enter the domain and an
-  account authorized to join computers (optionally the target OU).
+- **AD domain join path** (chosen): select **Join Active Directory**, enter
+  `gipartners.com`, the `hybridjoin` credentials, and the **AccountOU** that matches
+  the delegation — see [Join account — hybridjoin@gipartners.com](#join-account--hybridjoingipartnerscom).
 
 **④ Add applications / ⑤ Add certificates**
 - Usually skip for a join-only package. Add root/enterprise certs here only if OOBE
