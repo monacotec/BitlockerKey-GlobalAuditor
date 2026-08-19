@@ -35,11 +35,27 @@ devices must remain on-prem domain-joined, use AD domain join **and** confirm th
 Intune BitLocker policy saves recovery info to Entra (see the escrow policy note
 below), or keys will land only in on-prem AD DS.
 
-> **Chosen path: AD domain join (hybrid).** Devices join on-prem AD using a
-> dedicated join account, `hybridjoin@gipartners.com`, then hybrid-register to Entra
-> via Entra Connect. Because the Intune BitLocker policy is configured to save
-> recovery info to Entra, keys escrow to Entra ID. Set up the join account per the
-> next section **before** building the package.
+> **Chosen path: AD domain join (hybrid).** All devices join the single AD domain
+> **`pe.gipartners.com`** using one dedicated join account,
+> `hybridjoin@gipartners.com`, then hybrid-register to Entra via Entra Connect.
+> Because the Intune BitLocker policy is configured to save recovery info to Entra,
+> keys escrow to Entra ID. Set up the join account per the next section **before**
+> building the packages.
+
+### Two business units = two USBs
+
+Both business units live in the same AD domain (`pe.gipartners.com`); they differ
+only by target OU. So you build the package **twice**, changing **only the
+AccountOU**, and produce two labelled USBs:
+
+| USB | Business unit | AccountOU (WCD) |
+|---|---|---|
+| **USB 1** | GI Partners | `OU=Computers,OU=GI Partners,DC=pe,DC=gipartners,DC=com` |
+| **USB 2** | GI Property Management | `OU=Computers,OU=GI Property Management,DC=pe,DC=gipartners,DC=com` |
+
+Everything else — domain, join account, network, enrollment — is identical between
+the two. (Optionally give each a distinct computer-name prefix, e.g. `GIP-` vs
+`GIPM-`, if you want naming to reflect the BU.)
 
 ## Join account — hybridjoin@gipartners.com
 
@@ -51,23 +67,23 @@ so it must be least-privileged and the package treated as a secret.
 
 | Scope | Needs | Explicitly does NOT need |
 |---|---|---|
-| **On-prem AD** | Delegated **Create/Delete Computer objects** + specific property writes on **one target OU** | Domain Admin, Account Operators, or any built-in admin group |
+| **On-prem AD** | Delegated **Create/Delete Computer objects** + specific property writes on **both target OUs** (GI Partners and GI Property Management) | Domain Admin, Account Operators, or any built-in admin group |
 | **Entra ID** | *Nothing* — hybrid registration is done by Entra Connect, not this account | Any Entra role (Global Admin, Cloud Device Admin, Intune Admin) |
 | **Intune** | *Nothing* — auto-enrollment runs in the device/user context after hybrid join | Any Intune role or license |
 
 Least privilege matters here specifically because the password ships inside the
-package. Delegating rights on a single OU means a leaked package can, at worst,
-create/rename computer objects in that one OU — not compromise the domain.
+package. Delegating rights on just these two OUs means a leaked package can, at
+worst, create/rename computer objects in those OUs — not compromise the domain.
 
-### Step A — Create the account
+### Step A — Create the account (once)
 
-Run on a machine with the RSAT Active Directory PowerShell module (adjust the OU DN
-to your directory):
+One account serves both USBs. Run on a machine with the RSAT Active Directory
+PowerShell module (adjust the service-accounts OU to your directory):
 
 ```powershell
 New-ADUser -Name 'hybridjoin' -SamAccountName 'hybridjoin' `
   -UserPrincipalName 'hybridjoin@gipartners.com' `
-  -Path 'OU=Service Accounts,DC=gipartners,DC=com' `
+  -Path 'OU=Service Accounts,DC=pe,DC=gipartners,DC=com' `
   -AccountPassword (Read-Host -AsSecureString 'Enter a strong 25+ char password') `
   -Enabled $true -PasswordNeverExpires $true -CannotChangePassword $true `
   -Description 'Delegated computer-join account for OOBE provisioning packages'
@@ -76,13 +92,15 @@ New-ADUser -Name 'hybridjoin' -SamAccountName 'hybridjoin' `
 Keep it a plain **Domain Users** member — the join rights come from OU delegation in
 the next step, not from group membership.
 
-### Step B — Delegate Create/Delete Computer on the target OU (GUI, recommended)
+### Step B — Delegate Create/Delete Computer on BOTH OUs (GUI, recommended)
 
-Do this on the OU where provisioned computers should land (e.g.
-`OU=Workstations,DC=gipartners,DC=com`):
+Repeat this delegation on **each** of the two computer OUs:
+
+- `OU=Computers,OU=GI Partners,DC=pe,DC=gipartners,DC=com`
+- `OU=Computers,OU=GI Property Management,DC=pe,DC=gipartners,DC=com`
 
 1. **Active Directory Users and Computers** → **View → Advanced Features** (on).
-2. Right-click the target OU → **Delegate Control…** → **Next**.
+2. Right-click the OU → **Delegate Control…** → **Next**.
 3. **Add** `hybridjoin` → **Next**.
 4. **Create a custom task to delegate** → **Next**.
 5. **Only the following objects in the folder** → check **Computer objects**, then
@@ -95,30 +113,35 @@ Do this on the OU where provisioned computers should land (e.g.
    - Read and write Account Restrictions
    - Validated write to DNS host name
    - Validated write to service principal name
-7. **Next → Finish**.
+7. **Next → Finish**. Then repeat for the second OU.
 
 ### Step B (alt) — dsacls (scripted)
 
 The create/delete grant is simple and robust to script; use the GUI wizard above for
-the property-level bits:
+the property-level bits. Run both lines (UPN trustee shown; `PE\hybridjoin` works too
+if `PE` is your NetBIOS domain name):
 
 ```cmd
-dsacls "OU=Workstations,DC=gipartners,DC=com" /I:T /G "GIPARTNERS\hybridjoin:CCDC;computer"
+dsacls "OU=Computers,OU=GI Partners,DC=pe,DC=gipartners,DC=com" /I:T /G "hybridjoin@gipartners.com:CCDC;computer"
+dsacls "OU=Computers,OU=GI Property Management,DC=pe,DC=gipartners,DC=com" /I:T /G "hybridjoin@gipartners.com:CCDC;computer"
 ```
 
 `CCDC;computer` = create + delete **computer** child objects; `/I:T` applies down the
 subtree (drop to default/`/I:S` if you don't want sub-OUs included).
 
-### Step C — Point the package at the same OU
+### Step C — Point each package at its OU
 
-In WCD, the domain-join **AccountOU must match the delegated OU**. In the *Provision
-desktop devices* wizard's **Join Active Directory** step, or in *Advanced
-provisioning* under **Runtime settings → Accounts → ComputerAccount**, set:
+In WCD, the domain-join **AccountOU must match the delegated OU** — and this is the
+**only field that differs between the two USBs**. In the *Provision desktop devices*
+wizard's **Join Active Directory** step, or in *Advanced provisioning* under
+**Runtime settings → Accounts → ComputerAccount**, set:
 
-- **Account / UserName**: `GIPARTNERS\hybridjoin` (or `hybridjoin@gipartners.com`)
+- **Account / UserName**: `hybridjoin@gipartners.com` (or `PE\hybridjoin`)
 - **Password**: the account password
-- **AccountOU**: `OU=Workstations,DC=gipartners,DC=com`
-- **DomainName**: `gipartners.com`
+- **DomainName**: `pe.gipartners.com` *(the AD domain — not the email suffix)*
+- **AccountOU** — the one value that changes per USB:
+  - USB 1 (GI Partners): `OU=Computers,OU=GI Partners,DC=pe,DC=gipartners,DC=com`
+  - USB 2 (GI Property Management): `OU=Computers,OU=GI Property Management,DC=pe,DC=gipartners,DC=com`
 
 If you don't set AccountOU, computers land in the default **Computers** container —
 where `hybridjoin` has no delegated rights — and the join fails. Either set AccountOU
@@ -149,8 +172,9 @@ or redirect the default container with `redircmp`.
     Administrator). That account should be **excluded from Conditional Access / MFA
     prompts that would block the unattended join**, and must not exceed the Entra
     "maximum devices per user" quota.
-  - *AD domain join path*: domain credentials permitted to join computers to the
-    target OU.
+  - *AD domain join path* (chosen): the `hybridjoin@gipartners.com` account,
+    delegated Create/Delete Computer on both target OUs in `pe.gipartners.com` — see
+    [Join account](#join-account--hybridjoingipartnerscom).
 - **Intune auto-enrollment**: Entra → Mobility (MDM) → Microsoft Intune → MDM user
   scope covers the enrolling users, and devices are licensed for Intune.
 - **USB drive** formatted **FAT32** (OOBE reads FAT32 reliably; NTFS can work but
@@ -184,8 +208,9 @@ or redirect the default container with `redircmp`.
   with the permitted account → complete auth. A bulk token (valid up to **180 days**)
   is embedded in the package. **Set the shortest practical expiry.**
 - **AD domain join path** (chosen): select **Join Active Directory**, enter
-  `gipartners.com`, the `hybridjoin` credentials, and the **AccountOU** that matches
-  the delegation — see [Join account — hybridjoin@gipartners.com](#join-account--hybridjoingipartnerscom).
+  DomainName `pe.gipartners.com`, the `hybridjoin` credentials, and the per-USB
+  **AccountOU** that matches the delegation — see
+  [Join account — hybridjoin@gipartners.com](#join-account--hybridjoingipartnerscom).
 
 **④ Add applications / ⑤ Add certificates**
 - Usually skip for a join-only package. Add root/enterprise certs here only if OOBE
@@ -201,7 +226,10 @@ or redirect the default container with `redircmp`.
    WCD produces `<ProjectName>.ppkg` plus supporting files in the export folder.
 2. Copy the **`.ppkg`** file to the **root of the USB drive**. (Copying the whole
    export folder is fine too; the device only needs the `.ppkg`.)
-3. Label the USB and record which package/version and token-expiry date it carries.
+3. Label the USB with its **business unit / AccountOU** and the package version.
+4. **Repeat for the second business unit**: change **only the AccountOU** (Step C),
+   rebuild, and stage to a second USB. You end up with two USBs — GI Partners and GI
+   Property Management — identical except for AccountOU.
 
 ## Step 4 — Apply during OOBE
 
