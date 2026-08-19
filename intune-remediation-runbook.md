@@ -118,11 +118,34 @@ Low risk — the scripts are non-destructive:
 | Escrow fails: access denied | Not running as SYSTEM, or 32-bit host | Confirm *logged-on credentials = No* and *64-bit PowerShell = Yes* |
 | Keys appear in on-prem AD, not Entra | Hybrid device escrowing to AD DS by policy | Adjust BitLocker policy/join type; this script targets Entra explicitly via `BackupToAAD-...` |
 | Detection Compliant but auditor still flags the device | Local stamp exists but key never reached Entra (registration issue at escrow time) | Trust the Graph auditor; clear the stamp to force a re-escrow: `Remove-Item 'HKLM:\SOFTWARE\GI\BitLockerEscrow' -Recurse` |
+| Remediation fails on **every** device: `The string is missing the terminator: "` / `Missing closing '}'` | A **non-ASCII character** (em-dash, curly quote, etc.) in the script; the Intune Management Extension mangles it when writing `remediate.ps1` to `C:\Windows\IMECache\HealthScripts\` | Make the script **ASCII-only** (see hygiene note below), re-upload, and let it re-run |
+
+## Script hygiene — keep them ASCII-only
+
+Intune Remediation scripts **must contain only ASCII characters.** The Intune
+Management Extension re-writes the uploaded script to disk before running it, and a
+single non-ASCII character (em-dash `—`, curly quotes `“ ” ‘ ’`, non-breaking space,
+accented letters) gets corrupted in transit — breaking string parsing and causing
+`The string is missing the terminator` / `Missing closing '}'` on **every** device.
+
+Before uploading a new or edited script, scan it:
+
+```powershell
+Get-Content .\Backup-BitLockerToEntra.ps1 | ForEach-Object {
+    $_.ToCharArray() | Where-Object { [int]$_ -gt 127 }
+}   # any output = fix it before uploading
+```
+
+Use plain ASCII hyphens `-`, straight quotes `" '`, and `[OK]`/`[!!]` markers (not
+Unicode symbols). This bit us once: an em-dash in a `Write-Warning` string failed
+all 153 devices in the first rollout.
 
 ## Notes & limitations
 
 - **Runtime is Windows PowerShell 5.1**, not PowerShell 7. Both scripts are
   5.1-compatible; do not add PS7-only syntax.
+- **ASCII-only** — see the hygiene note above; non-ASCII characters break the
+  remediation on every device.
 - **64-bit is required** so the registry stamp is consistent between detection and
   remediation.
 - Device-side detection **cannot** verify Entra received the key. Pair every

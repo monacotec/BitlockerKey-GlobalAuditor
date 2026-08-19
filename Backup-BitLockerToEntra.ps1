@@ -91,7 +91,7 @@ foreach ($volume in $volumes) {
     $recoveryProtectors = $volume.KeyProtector | Where-Object { $_.KeyProtectorType -eq 'RecoveryPassword' }
 
     if (-not $recoveryProtectors) {
-        Write-Warning "  No RecoveryPassword protector found on $mountPoint — adding one."
+        Write-Warning "  No RecoveryPassword protector found on $mountPoint - adding one."
         try {
             $newProtector = Add-BitLockerKeyProtector -MountPoint $mountPoint -RecoveryPasswordProtector
             $recoveryProtectors = $newProtector.KeyProtector | Where-Object { $_.KeyProtectorType -eq 'RecoveryPassword' }
