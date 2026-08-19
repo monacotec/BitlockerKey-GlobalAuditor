@@ -103,3 +103,10 @@ See **[intune-remediation-runbook.md](intune-remediation-runbook.md)** for the f
 step-by-step deployment runbook. Note that Intune remediation scripts run as
 **SYSTEM under Windows PowerShell 5.1**, not PowerShell 7 — the BitLocker cmdlets
 are available there, but don't rely on PS7-only syntax.
+
+### Provisioning new devices (day-one compliance)
+
+To stop new gaps at the source, provision new/reimaged devices with a USB
+provisioning package that joins them to the directory and enrolls them in Intune at
+OOBE — after which the BitLocker policy encrypts and escrows the key automatically.
+See **[oobe-provisioning-usb-runbook.md](oobe-provisioning-usb-runbook.md)**.

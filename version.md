@@ -12,3 +12,4 @@ on the next edit.
 | Install-BitLockerAuditPrereqs.ps1 |  | | Prereq installer; no version string set |
 | README.md |  | | No version string set |
 | intune-remediation-runbook.md |  | | Intune deployment runbook; no version string set |
+| oobe-provisioning-usb-runbook.md |  | | OOBE .ppkg USB runbook; no version string set |

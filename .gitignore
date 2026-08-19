@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+*.tar
+*.skill
+
+# Windows Configuration Designer scratch + logs (may embed the bulk enrollment
+# token, Wi-Fi keys, or domain-join credentials once a package is built)
+ICD/
+
+# Built provisioning packages contain the embedded bulk token - never commit
+*.ppkg
+*.cat
