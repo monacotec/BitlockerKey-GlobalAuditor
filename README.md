@@ -110,3 +110,19 @@ To stop new gaps at the source, provision new/reimaged devices with a USB
 provisioning package that joins them to the directory and enrolls them in Intune at
 OOBE — after which the BitLocker policy encrypts and escrows the key automatically.
 See **[oobe-provisioning-usb-runbook.md](oobe-provisioning-usb-runbook.md)**.
+
+### Cipher strength (AES-128 -> AES-256)
+
+Escrowing a key does not guarantee the drive meets the AES-256 policy. Encryption
+method is locked in when a drive is first encrypted, so devices encrypted before the
+256 policy stay at XTS-AES-128. Two-part handling:
+
+- `Detect-BitLockerCipherStrength.ps1` - Intune detection-only remediation; flags any
+  volume not `XtsAes256` so the "With issues" count is your AES-128 population.
+- `Install-BitLocker256ConversionTask.ps1` + `Convert-BitLockerTo256.ps1` - delivered
+  by **PDQ Connect** as SYSTEM. Decrypts, re-encrypts at XTS-AES-256, re-adds
+  protectors, and re-escrows the new key. Runs as a self-resuming scheduled task
+  (survives reboots, self-removes at 256).
+
+Converting is disruptive - it has an unavoidable decrypt window. See
+**[bitlocker-cipher-256-conversion-runbook.md](bitlocker-cipher-256-conversion-runbook.md)**.
