@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BitLocker Global Auditor - Project Overview</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#ffffff; --panel2:#eef2f7; --ink:#1a2230; --muted:#5b6b82;
+    --line:#d7dee8; --accent:#1f6feb; --accent2:#0f9d84; --warn:#b4690e; --bad:#c0392b;
+    --ok:#1a7f4b; --code:#0b1220; --codeink:#d6e2ff; --chip:#e7eefb;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 16px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0c1017; --panel:#141b26; --panel2:#1b2430; --ink:#e7edf5; --muted:#9fb0c5;
+      --line:#263140; --accent:#4c8dff; --accent2:#2fd0b2; --warn:#e0a24a; --bad:#ff6b5e;
+      --ok:#48c98a; --code:#0a0f18; --codeink:#cfe0ff; --chip:#1c2a42;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,kbd{font-family:"SF Mono",SFMono-Regular,ui-monospace,Consolas,Menlo,monospace;font-size:.86em}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
+  header.top{position:sticky;top:0;z-index:20;background:var(--bg);
+    border-bottom:1px solid var(--line);padding:14px 0;margin-bottom:8px}
+  header.top .wrap{padding-bottom:0}
+  .titlebar{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .titlebar h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.2px}
+  .titlebar .sub{color:var(--muted);font-size:13px}
+  .tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:6px 11px;border-radius:8px;font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  #filter{flex:1;min-width:160px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:6px 11px;border-radius:8px;font-size:13px}
+  .lede{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:14px;padding:20px 22px;margin:18px 0;box-shadow:var(--shadow)}
+  .lede h2{margin:0 0 6px;font-size:16px}
+  .lede p{margin:6px 0;color:var(--muted)}
+  .flow{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+  .flow .step{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px}
+  .flow .step .k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);font-weight:700}
+  .flow .step .v{font-size:13px;color:var(--muted);margin-top:2px}
+  h2.section{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  details.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    margin:10px 0;box-shadow:var(--shadow);overflow:hidden}
+  details.card>summary{cursor:pointer;list-style:none;padding:14px 16px;display:flex;
+    align-items:center;gap:10px;font-weight:600}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary .car{transition:transform .18s;color:var(--muted);font-size:12px}
+  details.card[open]>summary .car{transform:rotate(90deg)}
+  details.card>summary .tag{margin-left:auto;font-size:11px;font-weight:700;padding:3px 9px;
+    border-radius:999px;background:var(--chip);color:var(--accent)}
+  .body{padding:2px 16px 16px 16px;border-top:1px solid var(--line)}
+  .body h4{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:14px}
+  .grid .g{color:var(--muted)}
+  ul.tight{margin:6px 0;padding-left:20px}
+  ul.tight li{margin:3px 0}
+  pre{background:var(--code);color:var(--codeink);border-radius:9px;padding:12px 14px;
+    overflow-x:auto;font-size:12.5px;line-height:1.5;margin:8px 0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  .chip{font-size:12px;background:var(--chip);border:1px solid var(--line);border-radius:999px;
+    padding:2px 10px;color:var(--ink)}
+  .note{border-left:3px solid var(--accent);background:var(--panel2);padding:8px 12px;
+    border-radius:0 8px 8px 0;margin:8px 0;font-size:13.5px}
+  .note.warn{border-left-color:var(--warn)}
+  .note.bad{border-left-color:var(--bad)}
+  .note.ok{border-left-color:var(--ok)}
+  .stat{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}
+  .stat .s{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px}
+  .stat .s .n{font-size:22px;font-weight:800}
+  .stat .s .l{font-size:12px;color:var(--muted)}
+  .n.ok{color:var(--ok)} .n.warn{color:var(--warn)} .n.bad{color:var(--bad)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0}
+  th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  .foot{color:var(--muted);font-size:12px;margin-top:26px;text-align:center}
+  .hidden{display:none !important}
+  .pathrow{font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap titlebar">
+    <div>
+      <h1>BitLocker Global Auditor</h1>
+      <div class="sub">Find - Fix - Prevent - Harden: recovery-key escrow &amp; cipher strength across a hybrid Entra tenant</div>
+    </div>
+    <div class="tools">
+      <input id="filter" placeholder="Filter components...">
+      <button class="btn" onclick="setAll(true)">Expand all</button>
+      <button class="btn" onclick="setAll(false)">Collapse all</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="lede">
+    <h2>What this project does</h2>
+    <p>Audits a hybrid Entra ID tenant for Windows devices whose BitLocker recovery key is
+       not escrowed to Entra, remediates them at scale, prevents new gaps at provisioning
+       time, and converts legacy AES-128 drives up to the AES-256 policy.</p>
+    <div class="flow">
+      <div class="step"><div class="k">Find</div><div class="v">Graph auditor lists devices missing a key (source of truth)</div></div>
+      <div class="step"><div class="k">Fix</div><div class="v">Intune detect/remediate pair escrows keys to Entra</div></div>
+      <div class="step"><div class="k">Prevent</div><div class="v">OOBE .ppkg USB joins + enrolls new/reimaged devices</div></div>
+      <div class="step"><div class="k">Harden</div><div class="v">PDQ converts AES-128 drives to AES-256</div></div>
+    </div>
+  </div>
+
+  <h2 class="section">Deployment status - escrow remediation (2026-08-20)</h2>
+  <div class="stat">
+    <div class="s"><div class="n">200</div><div class="l">devices reporting</div></div>
+    <div class="s"><div class="n ok">117</div><div class="l">keys escrowed (Issue fixed)</div></div>
+    <div class="s"><div class="n warn">69</div><div class="l">stragglers still on old script (v1)</div></div>
+    <div class="s"><div class="n">130</div><div class="l">on fixed script (v2)</div></div>
+  </div>
+  <div class="note ok"><b>Trajectory:</b> baseline was 0 keys escrowed; every device that has run the
+     corrected script (v2) succeeded (117/117). All 69 failures are v1 stragglers hitting the old
+     em-dash parse error and just need to re-run v2. Cipher-strength conversion (below) not yet started.</div>
+
+  <h2 class="section">Components</h2>
+
+  <details class="card" data-k="auditor graph audit report xlsx get-devicesmissingbitlockerkeys">
+    <summary><span class="car">&#9654;</span> Auditor - Get-DevicesMissingBitLockerKeys.ps1 <span class="tag">FIND</span></summary>
+    <div class="body">
+      <p>Queries Microsoft Graph for Windows devices and flags those with no BitLocker recovery
+         key escrowed to Entra. The authoritative compliance metric for the whole project.</p>
+      <h4>Key facts</h4>
+      <div class="grid">
+        <div class="g">Runs on</div><div>Admin workstation (PowerShell 7), against Graph v1.0</div>
+        <div class="g">Graph permissions</div><div><code>Device.Read.All</code>, <code>BitLockerKey.Read.All</code></div>
+        <div class="g">Auth</div><div>Interactive browser (no device-code flow)</div>
+        <div class="g">Output</div><div>XLSX (Missing / Compliant / Summary) + log at <code>C:\GI\</code></div>
+      </div>
+      <h4>Parameters</h4>
+      <ul class="tight">
+        <li><code>-HybridOnly</code> - restrict to Hybrid Entra-joined devices</li>
+        <li><code>-InactiveDays &lt;n&gt;</code> - inactive threshold (default 90)</li>
+        <li><code>-ExportPath &lt;path&gt;</code> - XLSX output path</li>
+        <li><code>-TenantId &lt;guid&gt;</code> - target a specific tenant</li>
+      </ul>
+      <pre>.\Get-DevicesMissingBitLockerKeys.ps1 -HybridOnly -InactiveDays 30</pre>
+    </div>
+  </details>
+
+  <details class="card" data-k="prereqs install modules psresourceget reinstall lock graph importexcel">
+    <summary><span class="car">&#9654;</span> Prerequisites - Install-BitLockerAuditPrereqs.ps1 <span class="tag">SETUP</span></summary>
+    <div class="body">
+      <p>Installs/updates the modules the auditor needs and verifies each imports in a clean
+         subprocess.</p>
+      <div class="chips">
+        <span class="chip">Microsoft.Graph.Authentication</span>
+        <span class="chip">Microsoft.Graph.Identity.DirectoryManagement</span>
+        <span class="chip">Microsoft.Graph.Identity.SignIns</span>
+        <span class="chip">ImportExcel</span>
+      </div>
+      <div class="note"><b>Fix baked in:</b> updates use a plain side-by-side
+        <code>Install-PSResource</code> (no <code>-Reinstall</code>). <code>-Reinstall</code> force-deletes
+        the package and its dependencies, which fails when a Graph DLL is loaded/locked
+        ("Cannot remove package path ...").</div>
+    </div>
+  </details>
+
+  <details class="card" data-k="escrow remediation intune detect backup entra pair stamp converge ascii">
+    <summary><span class="car">&#9654;</span> Escrow remediation pair (Intune) <span class="tag">FIX</span></summary>
+    <div class="body">
+      <p>An Intune Remediation that escrows missing keys to Entra and converges (runs once, then
+         reports compliant).</p>
+      <h4>The pair</h4>
+      <ul class="tight">
+        <li><code>Detect-BitLockerEntraEscrow.ps1</code> - read-only; non-compliant if a protected
+            volume lacks a <code>RecoveryPassword</code> protector or has no recorded escrow.</li>
+        <li><code>Backup-BitLockerToEntra.ps1</code> - ensures a recovery protector, escrows with
+            <code>BackupToAAD-BitLockerKeyProtector</code>, writes a success stamp to
+            <code>HKLM:\SOFTWARE\GI\BitLockerEscrow</code>.</li>
+      </ul>
+      <h4>Run options (Intune)</h4>
+      <div class="grid">
+        <div class="g">Logged-on creds</div><div>No (runs as SYSTEM)</div>
+        <div class="g">Signature check</div><div>No</div>
+        <div class="g">64-bit PowerShell</div><div>Yes</div>
+        <div class="g">Runtime</div><div>Windows PowerShell 5.1</div>
+      </div>
+      <div class="note bad"><b>Hard-won lesson:</b> Intune remediation scripts must be
+        <b>ASCII-only</b>. One em-dash in a string failed all 153 devices in the first rollout
+        ("The string is missing the terminator"). The Intune Management Extension mangles non-ASCII
+        when it writes the script to disk.</div>
+      <div class="pathrow">Runbook: intune-remediation-runbook.md</div>
+    </div>
+  </details>
+
+  <details class="card" data-k="oobe provisioning ppkg usb hybrid domain join hybridjoin wcd delegation two usb">
+    <summary><span class="car">&#9654;</span> OOBE provisioning USB (.ppkg) <span class="tag">PREVENT</span></summary>
+    <div class="body">
+      <p>A Windows Configuration Designer provisioning package that joins new/reimaged devices to
+         AD and enrolls them in Intune, so the BitLocker policy encrypts + escrows from day one.</p>
+      <h4>Topology</h4>
+      <div class="grid">
+        <div class="g">AD domain</div><div>Single: <code>pe.gipartners.com</code></div>
+        <div class="g">OUs</div><div>GI Partners &amp; GI Property Management (two USBs, differ only by AccountOU)</div>
+        <div class="g">Join account</div><div><code>hybridjoin@gipartners.com</code></div>
+        <div class="g">Escrow target</div><div>Entra (via Entra Connect hybrid registration + Intune policy)</div>
+      </div>
+      <h4>Join account permissions</h4>
+      <table>
+        <tr><th>Scope</th><th>Needs</th></tr>
+        <tr><td>On-prem AD</td><td>Delegated Create/Delete Computer on both OUs (no admin groups)</td></tr>
+        <tr><td>Entra ID</td><td>Nothing (Entra Connect does registration)</td></tr>
+        <tr><td>Intune</td><td>Nothing (auto-enroll in device/user context)</td></tr>
+      </table>
+      <div class="note"><b>Primary method:</b> apply to an existing (not-yet-domain-joined) Windows
+         install via Settings &gt; Access work or school &gt; Add a provisioning package, then reboot.
+         Credentials are embedded in the .ppkg - treat each USB as a secret.</div>
+      <div class="pathrow">Runbook: oobe-provisioning-usb-runbook.md</div>
+    </div>
+  </details>
+
+  <details class="card" data-k="cipher aes128 aes256 convert decrypt reencrypt pdq scheduled task tpm 256">
+    <summary><span class="car">&#9654;</span> Cipher conversion AES-128 -> AES-256 <span class="tag">HARDEN</span></summary>
+    <div class="body">
+      <p>Encryption method is locked when a drive is first encrypted, so drives encrypted before the
+         256 policy stay at XTS-AES-128. Detection reports them; PDQ converts them.</p>
+      <h4>The scripts</h4>
+      <ul class="tight">
+        <li><code>Detect-BitLockerCipherStrength.ps1</code> - Intune detection-only; "With issues" =
+            AES-128 population.</li>
+        <li><code>Install-BitLocker256ConversionTask.ps1</code> - staged by <b>PDQ Connect</b> (SYSTEM);
+            registers a self-resuming scheduled task.</li>
+        <li><code>Convert-BitLockerTo256.ps1</code> - decrypt -&gt; re-encrypt at 256 -&gt; re-add TPM +
+            RecoveryPassword protectors -&gt; re-escrow. Idempotent, resumes across reboots, self-removes
+            the task at 256.</li>
+      </ul>
+      <div class="note warn"><b>Decrypt window:</b> a cipher change requires a full decrypt first, so
+         there is an unavoidable window with no BitLocker protection. Converter refuses to start without
+         a ready TPM; throttle to small batches, prefer AC power, keep it to physically secure devices.</div>
+      <div class="note bad"><b>Not for</b> TPM+PIN, network-unlock, or non-TPM devices. No clean rollback
+         once decrypt starts - the safe direction is forward to 256.</div>
+      <div class="pathrow">Runbook: bitlocker-cipher-256-conversion-runbook.md</div>
+    </div>
+  </details>
+
+  <h2 class="section">Runbooks</h2>
+  <details class="card" data-k="runbooks docs guides">
+    <summary><span class="car">&#9654;</span> Operational runbooks <span class="tag">DOCS</span></summary>
+    <div class="body">
+      <ul class="tight">
+        <li><b>intune-remediation-runbook.md</b> - deploy the escrow detect/remediate pair; ASCII-only hygiene.</li>
+        <li><b>oobe-provisioning-usb-runbook.md</b> - build the .ppkg, hybridjoin account + delegation, two USBs.</li>
+        <li><b>bitlocker-cipher-256-conversion-runbook.md</b> - identify (Intune) and convert (PDQ) AES-128 drives.</li>
+      </ul>
+    </div>
+  </details>
+
+  <h2 class="section">Key lessons</h2>
+  <details class="card" data-k="lessons gotchas ascii cipher decrypt psresourceget hybrid">
+    <summary><span class="car">&#9654;</span> Gotchas learned the hard way <span class="tag">NOTES</span></summary>
+    <div class="body">
+      <ul class="tight">
+        <li><b>Intune scripts must be ASCII-only</b> - one em-dash failed all 153 devices.</li>
+        <li><b>Cipher strength is locked at encrypt time</b> - policy does not retro-fix; escrow success is
+            independent of cipher strength.</li>
+        <li><b>Cipher change has an unavoidable decrypt window</b> - handle via TPM guard, throttling, PDQ task.</li>
+        <li><b>PSResourceGet -Reinstall deletes locked DLLs</b> - use plain side-by-side install for updates.</li>
+        <li><b>Hybrid escrow target</b> - hybrid devices default to on-prem AD DS; policy must save to Entra.</li>
+        <li><b>Device-side detection cannot confirm Entra receipt</b> - the Graph auditor stays authoritative.</li>
+      </ul>
+    </div>
+  </details>
+
+  <h2 class="section">File manifest</h2>
+  <details class="card" data-k="files manifest scripts">
+    <summary><span class="car">&#9654;</span> Scripts &amp; docs in the repo <span class="tag">FILES</span></summary>
+    <div class="body">
+      <table>
+        <tr><th>File</th><th>Role</th></tr>
+        <tr><td>Get-DevicesMissingBitLockerKeys.ps1</td><td>Auditor (Graph)</td></tr>
+        <tr><td>Install-BitLockerAuditPrereqs.ps1</td><td>Prereq module installer</td></tr>
+        <tr><td>Detect-BitLockerEntraEscrow.ps1</td><td>Escrow detection (Intune)</td></tr>
+        <tr><td>Backup-BitLockerToEntra.ps1</td><td>Escrow remediation (Intune/PDQ)</td></tr>
+        <tr><td>Detect-BitLockerCipherStrength.ps1</td><td>Cipher detection (Intune)</td></tr>
+        <tr><td>Install-BitLocker256ConversionTask.ps1</td><td>Converter task installer (PDQ)</td></tr>
+        <tr><td>Convert-BitLockerTo256.ps1</td><td>Cipher converter engine</td></tr>
+        <tr><td>*.md runbooks + README.md + version.md</td><td>Docs &amp; manifest</td></tr>
+      </table>
+    </div>
+  </details>
+
+  <div class="foot">Generated overview - BitLocker Global Auditor. Status snapshot dated 2026-08-20.</div>
+</div>
+
+<script>
+  function setAll(open){document.querySelectorAll('details.card').forEach(function(d){d.open=open;});}
+  var f=document.getElementById('filter');
+  f.addEventListener('input',function(){
+    var q=f.value.trim().toLowerCase();
+    document.querySelectorAll('details.card').forEach(function(d){
+      var hay=(d.getAttribute('data-k')||'')+' '+d.textContent.toLowerCase();
+      var hit=q===''||hay.indexOf(q)>-1;
+      d.classList.toggle('hidden',!hit);
+      if(q!==''&&hit)d.open=true;
+    });
+  });
+</script>
+</body>
+</html>
