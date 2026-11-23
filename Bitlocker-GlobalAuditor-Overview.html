@@ -119,16 +119,17 @@
     </div>
   </div>
 
-  <h2 class="section">Deployment status - escrow remediation (2026-08-20)</h2>
+  <h2 class="section">Deployment status - escrow remediation (2026-11-23)</h2>
   <div class="stat">
-    <div class="s"><div class="n">200</div><div class="l">devices reporting</div></div>
-    <div class="s"><div class="n ok">117</div><div class="l">keys escrowed (Issue fixed)</div></div>
-    <div class="s"><div class="n warn">69</div><div class="l">stragglers still on old script (v1)</div></div>
-    <div class="s"><div class="n">130</div><div class="l">on fixed script (v2)</div></div>
+    <div class="s"><div class="n">282</div><div class="l">devices reporting</div></div>
+    <div class="s"><div class="n ok">278</div><div class="l">compliant - key escrowed to Entra</div></div>
+    <div class="s"><div class="n warn">4</div><div class="l">offline stragglers (last sync Aug)</div></div>
+    <div class="s"><div class="n ok">98.6%</div><div class="l">compliance</div></div>
   </div>
-  <div class="note ok"><b>Trajectory:</b> baseline was 0 keys escrowed; every device that has run the
-     corrected script (v2) succeeded (117/117). All 69 failures are v1 stragglers hitting the old
-     em-dash parse error and just need to re-run v2. Cipher-strength conversion (below) not yet started.</div>
+  <div class="note ok"><b>Effectively complete:</b> 278/282 report a RecoveryPassword protector and a
+     recorded Entra escrow (detection passes, so remediation shows "Not run"). Baseline was 0 escrowed;
+     zero v2 devices have failed. The 4 remaining are Hybrid devices that have not synced since August -
+     offline or retired, not a script problem. Cipher-strength conversion (below) not yet started.</div>
 
   <h2 class="section">Components</h2>
 
@@ -297,7 +298,7 @@
     </div>
   </details>
 
-  <div class="foot">Generated overview - BitLocker Global Auditor. Status snapshot dated 2026-08-20.</div>
+  <div class="foot">Generated overview - BitLocker Global Auditor. Status snapshot dated 2026-11-23.</div>
 </div>
 
 <script>
